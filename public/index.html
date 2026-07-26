@@ -3220,29 +3220,17 @@
             })();
         </script>
 
-        <!-- ==================== SWIPE GALLERY ==================== -->
+<!-- ==================== SWIPE GALLERY ==================== -->
         <style>
             #ssGallery {
                 position: relative;
                 overflow: hidden;
-                padding: 64px 18px 100px;
-                background: #f9f0e0;
+                padding: 70px 18px 110px;
+                background: radial-gradient(circle at 50% 52%, rgba(181, 135, 73, 0.11), transparent 37%), #f9f0e0;
                 text-align: center;
             }
 
-            #ssGallery .ss-ga-seal {
-                position: relative;
-                z-index: 4;
-                display: block;
-                width: clamp(92px, 24vw, 132px);
-                margin: 0 auto -30px;
-                filter: drop-shadow(0 10px 12px rgba(72, 24, 26, 0.24));
-                transform: rotate(-4deg);
-                pointer-events: none;
-            }
-
             #ssGallery .ss-ga-eyebrow {
-                margin-top: 50px;
                 font-family: 'Marcellus', Georgia, serif;
                 font-size: 11px;
                 letter-spacing: 0.34em;
@@ -3261,22 +3249,36 @@
             }
 
             #ssGallery .ss-ga-instruction {
-                margin: 12px auto 34px;
+                margin: 12px auto 64px;
                 font-family: 'Cormorant Garamond', Georgia, serif;
                 font-size: 18px;
                 font-style: italic;
                 color: #765b43;
-                transition: opacity 0.5s ease;
             }
 
-            #ssGallery.is-revealed .ss-ga-instruction { opacity: 0; }
-
-            #ssGallery .ss-ga-stage {
+            #ssGallery .ss-ga-stack {
                 position: relative;
-                width: min(500px, 92vw);
+                width: min(500px, 86vw);
                 aspect-ratio: 1122 / 1402;
                 margin: 0 auto;
-                touch-action: pan-x;
+            }
+
+            #ssGallery .ss-ga-seal {
+                position: absolute;
+                top: -51px;
+                left: 50%;
+                z-index: 10;
+                display: block;
+                width: clamp(102px, 26vw, 142px);
+                transform: translateX(-50%) rotate(-4deg);
+                filter: drop-shadow(0 10px 12px rgba(72, 24, 26, 0.3));
+                pointer-events: none;
+            }
+
+            #ssGallery .ss-ga-stage {
+                position: absolute;
+                inset: 0;
+                touch-action: pan-y;
                 user-select: none;
                 -webkit-user-select: none;
                 outline: none;
@@ -3285,8 +3287,10 @@
             #ssGallery .ss-ga-card {
                 position: absolute;
                 inset: 0;
-                overflow: hidden;
-                filter: drop-shadow(0 22px 24px rgba(73, 45, 23, 0.18));
+                margin: 0;
+                will-change: transform, opacity;
+                filter: drop-shadow(0 22px 25px rgba(73, 45, 23, 0.2));
+                transform-origin: 50% 15%;
             }
 
             #ssGallery .ss-ga-card img {
@@ -3300,15 +3304,15 @@
 
             #ssGallery .ss-ga-card--back {
                 z-index: 1;
-                transform: scale(0.965);
-                transition: transform 0.8s cubic-bezier(0.22, 0.72, 0.22, 1);
+                transform: rotate(var(--back-rotate, 2.6deg)) scale(var(--back-scale, 0.965));
+                transition: transform 0.72s cubic-bezier(0.22, 0.72, 0.22, 1);
             }
 
             #ssGallery .ss-ga-card--front {
                 z-index: 2;
                 cursor: grab;
-                will-change: transform, opacity;
-                transform: translate3d(0, var(--drag-y, 0px), 0) rotate(var(--drag-rotate, 0deg));
+                transform: translate3d(var(--drag-x, 0px), 0, 0) rotate(var(--drag-rotate, -1.4deg)) scale(var(--drag-scale, 1));
+                transition: transform 0.72s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.5s ease;
             }
 
             #ssGallery .ss-ga-card--front.is-dragging {
@@ -3316,107 +3320,145 @@
                 transition: none;
             }
 
-            #ssGallery .ss-ga-card--front.is-returning {
-                transition: transform 0.68s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.5s ease;
-            }
-
-            #ssGallery .ss-ga-card--front.is-dismissed {
+            #ssGallery .ss-ga-card--front.is-exiting {
                 opacity: 0;
-                transform: translate3d(0, -115%, 0) rotate(-2deg);
-                transition: transform 0.92s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.62s 0.14s ease;
-                pointer-events: none;
+                transform: translate3d(var(--exit-x), 3%, 0) rotate(var(--exit-rotate)) scale(0.88);
+                transition: transform 0.72s cubic-bezier(0.32, 0.02, 0.24, 1), opacity 0.48s 0.12s ease;
             }
 
-            #ssGallery.is-revealed .ss-ga-card--back { transform: scale(1); }
+            #ssGallery .ss-ga-card.is-resetting { transition: none !important; }
 
             @media (prefers-reduced-motion: reduce) {
                 #ssGallery .ss-ga-card { transition-duration: 0.01ms !important; }
             }
         </style>
         <section id="ssGallery" aria-labelledby="ssGalleryTitle">
-            <img class="ss-ga-seal" src="/image/wax-seal.webp" alt="" aria-hidden="true"/>
             <p class="ss-ga-eyebrow">Our story</p>
             <h2 class="ss-ga-title" id="ssGalleryTitle">Moments to treasure</h2>
-            <p class="ss-ga-instruction" id="ssGalleryHint">Swipe up to reveal the next moment</p>
-            <div class="ss-ga-stage" id="ssGalleryStage" tabindex="0" role="group" aria-label="Photo gallery. Swipe up or press the up arrow to show the next photo." aria-describedby="ssGalleryHint">
-                <figure class="ss-ga-card ss-ga-card--back">
-                    <img src="/image/2.webp" alt="A couple sharing an intimate moment in the evening light" draggable="false"/>
-                </figure>
-                <figure class="ss-ga-card ss-ga-card--front" id="ssGalleryFront">
-                    <img src="/image/1.webp" alt="A couple holding hands by the water" draggable="false"/>
-                </figure>
+            <p class="ss-ga-instruction" id="ssGalleryHint">Swipe left or right to turn the photo</p>
+            <div class="ss-ga-stack">
+                <div class="ss-ga-stage" id="ssGalleryStage" tabindex="0" role="group" aria-label="Two-photo gallery. Swipe left or right, or use the arrow keys, to change the photo." aria-describedby="ssGalleryHint">
+                    <figure class="ss-ga-card ss-ga-card--back" data-photo="2">
+                        <img src="/image/2.webp" alt="A couple sharing an intimate moment in the evening light" draggable="false"/>
+                    </figure>
+                    <figure class="ss-ga-card ss-ga-card--front" data-photo="1">
+                        <img src="/image/1.webp" alt="A couple holding hands by the water" draggable="false"/>
+                    </figure>
+                </div>
+                <img class="ss-ga-seal" src="/image/wax-seal.webp" alt="" aria-hidden="true"/>
             </div>
         </section>
 
         <script>
             (function() {
-                var gallery = document.getElementById('ssGallery');
                 var stage = document.getElementById('ssGalleryStage');
-                var front = document.getElementById('ssGalleryFront');
-                if (!gallery || !stage || !front) return;
+                if (!stage) return;
 
-                var startY = 0;
-                var currentY = 0;
+                var front = stage.querySelector('.ss-ga-card--front');
+                var back = stage.querySelector('.ss-ga-card--back');
+                var startX = 0;
+                var currentX = 0;
+                var startTime = 0;
                 var dragging = false;
-                var revealed = false;
+                var animating = false;
 
-                function reveal() {
-                    if (revealed) return;
-                    revealed = true;
-                    dragging = false;
-                    front.classList.remove('is-dragging', 'is-returning');
-                    front.style.removeProperty('--drag-y');
-                    front.style.removeProperty('--drag-rotate');
-                    front.classList.add('is-dismissed');
-                    gallery.classList.add('is-revealed');
-                    stage.setAttribute('aria-label', 'Photo gallery showing the second photo.');
+                function setDrag(x) {
+                    var width = Math.max(stage.clientWidth, 1);
+                    var progress = Math.min(Math.abs(x) / width, 1);
+                    currentX = x;
+                    front.style.setProperty('--drag-x', x + 'px');
+                    front.style.setProperty('--drag-rotate', (-1.4 + (x / width) * 9) + 'deg');
+                    front.style.setProperty('--drag-scale', 1 - progress * 0.08);
+                    back.style.setProperty('--back-scale', 0.965 + progress * 0.035);
+                    back.style.setProperty('--back-rotate', (2.6 - progress * 2.6) + 'deg');
                 }
 
-                function returnFront() {
+                function clearDrag() {
+                    front.style.removeProperty('--drag-x');
+                    front.style.removeProperty('--drag-rotate');
+                    front.style.removeProperty('--drag-scale');
+                    back.style.removeProperty('--back-scale');
+                    back.style.removeProperty('--back-rotate');
+                }
+
+                function settleBack() {
                     front.classList.remove('is-dragging');
-                    front.classList.add('is-returning');
-                    front.style.setProperty('--drag-y', '0px');
-                    front.style.setProperty('--drag-rotate', '0deg');
+                    clearDrag();
+                }
+
+                function cycle(direction) {
+                    if (animating) return;
+                    animating = true;
+                    dragging = false;
+                    var outgoing = front;
+                    var incoming = back;
+                    var distance = Math.max(stage.clientWidth * 1.25, 520);
+
+                    outgoing.classList.remove('is-dragging');
+                    outgoing.style.setProperty('--exit-x', direction * distance + 'px');
+                    outgoing.style.setProperty('--exit-rotate', direction * 11 + 'deg');
+                    outgoing.classList.add('is-exiting');
+                    incoming.style.removeProperty('--back-scale');
+                    incoming.style.removeProperty('--back-rotate');
+
                     window.setTimeout(function() {
-                        front.classList.remove('is-returning');
-                        front.style.removeProperty('--drag-y');
-                        front.style.removeProperty('--drag-rotate');
-                    }, 700);
+                        outgoing.classList.add('is-resetting');
+                        outgoing.classList.remove('ss-ga-card--front', 'is-exiting');
+                        outgoing.classList.add('ss-ga-card--back');
+                        outgoing.style.removeProperty('--exit-x');
+                        outgoing.style.removeProperty('--exit-rotate');
+
+                        incoming.classList.add('is-resetting');
+                        incoming.classList.remove('ss-ga-card--back');
+                        incoming.classList.add('ss-ga-card--front');
+                        clearDrag();
+
+                        front = incoming;
+                        back = outgoing;
+                        stage.setAttribute('aria-label', 'Photo ' + front.getAttribute('data-photo') + ' of 2. Swipe left or right to continue.');
+
+                        requestAnimationFrame(function() {
+                            requestAnimationFrame(function() {
+                                outgoing.classList.remove('is-resetting');
+                                incoming.classList.remove('is-resetting');
+                                animating = false;
+                            });
+                        });
+                    }, 730);
                 }
 
                 stage.addEventListener('pointerdown', function(event) {
-                    if (revealed || event.button !== 0) return;
-                    startY = event.clientY;
-                    currentY = 0;
+                    if (animating || event.button !== 0) return;
+                    startX = event.clientX;
+                    currentX = 0;
+                    startTime = Date.now();
                     dragging = true;
-                    front.classList.remove('is-returning');
                     front.classList.add('is-dragging');
                     stage.setPointerCapture(event.pointerId);
                 });
 
                 stage.addEventListener('pointermove', function(event) {
-                    if (!dragging || revealed) return;
-                    var delta = event.clientY - startY;
-                    currentY = Math.min(0, delta);
-                    front.style.setProperty('--drag-y', currentY + 'px');
-                    front.style.setProperty('--drag-rotate', Math.max(-2.2, currentY / 180) + 'deg');
+                    if (!dragging || animating) return;
+                    setDrag(event.clientX - startX);
                 });
 
                 function finishDrag(event) {
-                    if (!dragging || revealed) return;
+                    if (!dragging || animating) return;
                     dragging = false;
                     if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
-                    if (currentY < -Math.min(100, stage.clientHeight * 0.18)) reveal();
-                    else returnFront();
+                    var elapsed = Math.max(Date.now() - startTime, 1);
+                    var velocity = currentX / elapsed;
+                    var committed = Math.abs(currentX) > stage.clientWidth * 0.2 || Math.abs(velocity) > 0.55;
+                    if (committed && currentX !== 0) cycle(currentX < 0 ? -1 : 1);
+                    else settleBack();
                 }
 
                 stage.addEventListener('pointerup', finishDrag);
                 stage.addEventListener('pointercancel', finishDrag);
                 stage.addEventListener('keydown', function(event) {
-                    if (!revealed && (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Enter' || event.key === ' ')) {
-                        event.preventDefault();
-                        reveal();
-                    }
+                    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                    event.preventDefault();
+                    cycle(event.key === 'ArrowLeft' ? -1 : 1);
                 });
             })();
         </script>
