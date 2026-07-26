@@ -3219,20 +3219,29 @@
                 });
             })();
         </script>
-        
-<!-- ==================== GALLERY ==================== -->
+        <!-- ==================== SWIPE GALLERY ==================== -->
         <style>
             #ssGallery {
                 position: relative;
                 overflow: hidden;
-                padding: 74px 20px 118px;
-                background:
-                    radial-gradient(circle at 50% 18%, rgba(184, 138, 75, 0.12), transparent 34%),
-                    #f9f0e0;
+                padding: 64px 18px 100px;
+                background: #f9f0e0;
                 text-align: center;
             }
 
+            #ssGallery .ss-ga-seal {
+                position: relative;
+                z-index: 4;
+                display: block;
+                width: clamp(92px, 24vw, 132px);
+                margin: 0 auto -30px;
+                filter: drop-shadow(0 10px 12px rgba(72, 24, 26, 0.24));
+                transform: rotate(-4deg);
+                pointer-events: none;
+            }
+
             #ssGallery .ss-ga-eyebrow {
+                margin-top: 50px;
                 font-family: 'Marcellus', Georgia, serif;
                 font-size: 11px;
                 letter-spacing: 0.34em;
@@ -3244,138 +3253,170 @@
             #ssGallery .ss-ga-title {
                 margin-top: 10px;
                 font-family: 'Cormorant Garamond', Georgia, serif;
-                font-size: clamp(42px, 8vw, 66px);
+                font-size: clamp(42px, 8vw, 64px);
                 font-weight: 300;
                 line-height: 1;
                 color: #704518;
             }
 
-            #ssGallery .ss-ga-subtitle {
-                max-width: 420px;
-                margin: 14px auto 48px;
+            #ssGallery .ss-ga-instruction {
+                margin: 12px auto 34px;
                 font-family: 'Cormorant Garamond', Georgia, serif;
-                font-size: 20px;
+                font-size: 18px;
                 font-style: italic;
                 color: #765b43;
+                transition: opacity 0.5s ease;
             }
 
-            #ssGallery .ss-ga-stack {
-                width: min(460px, 88vw);
-                margin: 0 auto;
-            }
+            #ssGallery.is-revealed .ss-ga-instruction { opacity: 0; }
 
-            #ssGallery .ss-ga-photo {
+            #ssGallery .ss-ga-stage {
                 position: relative;
-                padding: 10px 10px 38px;
-                background: #fffaf0;
-                border: 1px solid rgba(129, 87, 40, 0.2);
-                box-shadow: 0 18px 42px rgba(83, 50, 24, 0.15);
-                opacity: 0;
-                transform: translateY(34px) rotate(var(--tilt));
-                transition: opacity 0.9s ease, transform 1.1s cubic-bezier(0.22,0.61,0.36,1);
+                width: min(500px, 92vw);
+                aspect-ratio: 1122 / 1402;
+                margin: 0 auto;
+                touch-action: pan-x;
+                user-select: none;
+                -webkit-user-select: none;
+                outline: none;
             }
 
-            #ssGallery .ss-ga-photo + .ss-ga-photo { margin-top: -24px; }
-            #ssGallery .ss-ga-photo:nth-child(1) { --tilt: -2.5deg; z-index: 1; }
-            #ssGallery .ss-ga-photo:nth-child(2) { --tilt: 2deg; z-index: 2; }
-            #ssGallery .ss-ga-photo:nth-child(3) { --tilt: -1.5deg; z-index: 3; }
-
-            #ssGallery.is-in .ss-ga-photo {
-                opacity: 1;
-                transform: translateY(0) rotate(var(--tilt));
+            #ssGallery .ss-ga-card {
+                position: absolute;
+                inset: 0;
+                overflow: hidden;
+                filter: drop-shadow(0 22px 24px rgba(73, 45, 23, 0.18));
             }
 
-            #ssGallery.is-in .ss-ga-photo:nth-child(2) { transition-delay: 0.16s; }
-            #ssGallery.is-in .ss-ga-photo:nth-child(3) { transition-delay: 0.32s; }
-
-            #ssGallery .ss-ga-photo img {
+            #ssGallery .ss-ga-card img {
                 display: block;
                 width: 100%;
-                height: clamp(285px, 72vw, 410px);
+                height: 100%;
                 object-fit: contain;
-                background: #f5e8d2;
+                pointer-events: none;
+                -webkit-user-drag: none;
             }
 
-            #ssGallery .ss-ga-photo figcaption {
-                position: absolute;
-                right: 12px;
-                bottom: 9px;
-                left: 12px;
-                font-family: 'Cormorant Garamond', Georgia, serif;
-                font-size: 17px;
-                font-style: italic;
-                letter-spacing: 0.04em;
-                color: #795531;
+            #ssGallery .ss-ga-card--back {
+                z-index: 1;
+                transform: scale(0.965);
+                transition: transform 0.8s cubic-bezier(0.22, 0.72, 0.22, 1);
             }
 
-            #ssGallery .ss-ga-seal {
-                position: relative;
-                z-index: 5;
-                display: grid;
-                place-items: center;
-                width: 82px;
-                height: 82px;
-                margin: -18px auto 0;
-                border-radius: 50%;
-                background: #7b1724;
-                color: #d8ad68;
-                font-family: 'Cormorant Garamond', Georgia, serif;
-                font-size: 31px;
-                font-style: italic;
-                letter-spacing: -0.1em;
-                text-indent: -0.1em;
-                box-shadow: inset 0 0 0 5px #8e2431, inset 0 0 0 7px rgba(216,173,104,0.5), 0 8px 16px rgba(70,25,20,0.25);
-                transform: rotate(-8deg);
+            #ssGallery .ss-ga-card--front {
+                z-index: 2;
+                cursor: grab;
+                will-change: transform, opacity;
+                transform: translate3d(0, var(--drag-y, 0px), 0) rotate(var(--drag-rotate, 0deg));
             }
 
-            #ssGallery .ss-ga-seal::before {
-                content: '';
-                position: absolute;
-                inset: -6px;
-                z-index: -1;
-                border-radius: 46% 54% 49% 51% / 52% 45% 55% 48%;
-                background: #7b1724;
+            #ssGallery .ss-ga-card--front.is-dragging {
+                cursor: grabbing;
+                transition: none;
             }
+
+            #ssGallery .ss-ga-card--front.is-returning {
+                transition: transform 0.68s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.5s ease;
+            }
+
+            #ssGallery .ss-ga-card--front.is-dismissed {
+                opacity: 0;
+                transform: translate3d(0, -115%, 0) rotate(-2deg);
+                transition: transform 0.92s cubic-bezier(0.22, 0.72, 0.22, 1), opacity 0.62s 0.14s ease;
+                pointer-events: none;
+            }
+
+            #ssGallery.is-revealed .ss-ga-card--back { transform: scale(1); }
 
             @media (prefers-reduced-motion: reduce) {
-                #ssGallery .ss-ga-photo { opacity: 1; transform: rotate(var(--tilt)); transition: none; }
+                #ssGallery .ss-ga-card { transition-duration: 0.01ms !important; }
             }
         </style>
         <section id="ssGallery" aria-labelledby="ssGalleryTitle">
-            <p class="ss-ga-eyebrow">Our celebrations</p>
+            <img class="ss-ga-seal" src="/image/wax-seal.webp" alt="" aria-hidden="true"/>
+            <p class="ss-ga-eyebrow">Our story</p>
             <h2 class="ss-ga-title" id="ssGalleryTitle">Moments to treasure</h2>
-            <p class="ss-ga-subtitle">A little glimpse of the joy that brings us to forever.</p>
-            <div class="ss-ga-stack">
-                <figure class="ss-ga-photo">
-                    <img src="/image/mehendi.webp" alt="The bride celebrating her mehendi with loved ones" loading="lazy"/>
-                    <figcaption>Love in every little detail</figcaption>
+            <p class="ss-ga-instruction" id="ssGalleryHint">Swipe up to reveal the next moment</p>
+            <div class="ss-ga-stage" id="ssGalleryStage" tabindex="0" role="group" aria-label="Photo gallery. Swipe up or press the up arrow to show the next photo." aria-describedby="ssGalleryHint">
+                <figure class="ss-ga-card ss-ga-card--back">
+                    <img src="/image/2.webp" alt="A couple sharing an intimate moment in the evening light" draggable="false"/>
                 </figure>
-                <figure class="ss-ga-photo">
-                    <img src="/image/sangeet.webp" alt="The couple dancing with family at their sangeet" loading="lazy"/>
-                    <figcaption>Dancing our way to forever</figcaption>
+                <figure class="ss-ga-card ss-ga-card--front" id="ssGalleryFront">
+                    <img src="/image/1.webp" alt="A couple holding hands by the water" draggable="false"/>
                 </figure>
-                <figure class="ss-ga-photo">
-                    <img src="/image/wedding.webp" alt="The newlywed couple walking hand in hand" loading="lazy"/>
-                    <figcaption>And so our story begins</figcaption>
-                </figure>
-                <div class="ss-ga-seal" aria-label="R and V wax seal">R&amp;V</div>
             </div>
         </section>
 
         <script>
             (function() {
                 var gallery = document.getElementById('ssGallery');
-                if (!gallery) return;
-                if (!('IntersectionObserver' in window)) {
-                    gallery.classList.add('is-in');
-                    return;
+                var stage = document.getElementById('ssGalleryStage');
+                var front = document.getElementById('ssGalleryFront');
+                if (!gallery || !stage || !front) return;
+
+                var startY = 0;
+                var currentY = 0;
+                var dragging = false;
+                var revealed = false;
+
+                function reveal() {
+                    if (revealed) return;
+                    revealed = true;
+                    dragging = false;
+                    front.classList.remove('is-dragging', 'is-returning');
+                    front.style.removeProperty('--drag-y');
+                    front.style.removeProperty('--drag-rotate');
+                    front.classList.add('is-dismissed');
+                    gallery.classList.add('is-revealed');
+                    stage.setAttribute('aria-label', 'Photo gallery showing the second photo.');
                 }
-                var observer = new IntersectionObserver(function(entries) {
-                    if (!entries[0].isIntersecting) return;
-                    gallery.classList.add('is-in');
-                    observer.disconnect();
-                }, { threshold: 0.12 });
-                observer.observe(gallery);
+
+                function returnFront() {
+                    front.classList.remove('is-dragging');
+                    front.classList.add('is-returning');
+                    front.style.setProperty('--drag-y', '0px');
+                    front.style.setProperty('--drag-rotate', '0deg');
+                    window.setTimeout(function() {
+                        front.classList.remove('is-returning');
+                        front.style.removeProperty('--drag-y');
+                        front.style.removeProperty('--drag-rotate');
+                    }, 700);
+                }
+
+                stage.addEventListener('pointerdown', function(event) {
+                    if (revealed || event.button !== 0) return;
+                    startY = event.clientY;
+                    currentY = 0;
+                    dragging = true;
+                    front.classList.remove('is-returning');
+                    front.classList.add('is-dragging');
+                    stage.setPointerCapture(event.pointerId);
+                });
+
+                stage.addEventListener('pointermove', function(event) {
+                    if (!dragging || revealed) return;
+                    var delta = event.clientY - startY;
+                    currentY = Math.min(0, delta);
+                    front.style.setProperty('--drag-y', currentY + 'px');
+                    front.style.setProperty('--drag-rotate', Math.max(-2.2, currentY / 180) + 'deg');
+                });
+
+                function finishDrag(event) {
+                    if (!dragging || revealed) return;
+                    dragging = false;
+                    if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+                    if (currentY < -Math.min(100, stage.clientHeight * 0.18)) reveal();
+                    else returnFront();
+                }
+
+                stage.addEventListener('pointerup', finishDrag);
+                stage.addEventListener('pointercancel', finishDrag);
+                stage.addEventListener('keydown', function(event) {
+                    if (!revealed && (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        reveal();
+                    }
+                });
             })();
         </script>
         
