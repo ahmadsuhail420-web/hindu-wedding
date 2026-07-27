@@ -1175,15 +1175,28 @@
                     dragDistance = Math.max(220, r.width * 0.9);
                 }
 
-                function onMeta() {
-                    duration = video.duration || 0;
-                    measure();
-                    if (revealed) {
-                        video.currentTime = duration;
-                    } else {
-                        video.currentTime = 0;
-                    }
-                }
+function onMeta() {
+    duration = video.duration || 0;
+    measure();
+    if (revealed) {
+        video.currentTime = duration;
+    } else {
+        // prime: force a frame to paint, then rewind
+        var p = video.play();
+        if (p && p.then) {
+            p.then(function() {
+                video.pause();
+                video.currentTime = 0;
+            }).catch(function() {
+                video.currentTime = 0;
+            });
+        } else {
+            video.pause();
+            video.currentTime = 0;
+        }
+    }
+}
+
                 video.addEventListener('loadedmetadata', onMeta);
 
                 var rt;
