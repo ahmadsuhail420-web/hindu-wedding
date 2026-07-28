@@ -1017,27 +1017,84 @@
                 -webkit-user-drag: none;
             }
 
-            /* ---- hint ---- */
+            /* ---- hint: centred on the card, gesture above the label ----
+               Safe to sit dead centre: before the first swipe the date layer is
+               fully masked out and the extras layer is at zero opacity, so the
+               middle of the card is empty. */
             #ssRevealHint {
                 position: absolute;
                 left: 50%;
-                bottom: 8%;
-                transform: translateX(-50%);
-                font-family: 'Marcellus', Georgia, serif;
-                font-size: 12px;
-                letter-spacing: 0.26em;
-                text-transform: uppercase;
-                color: rgba(122, 90, 50, 0.85);
+                top: 50%;
+                transform: translate(-50%, -50%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
                 pointer-events: none;
-                white-space: nowrap;
                 z-index: 3;
-                animation: ssHintPulse 2.6s ease-in-out infinite;
                 transition: opacity 0.5s ease;
             }
 
+            #ssRevealHint .ss-hint-label {
+                font-family: 'Marcellus', Georgia, serif;
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.26em;
+                text-indent: 0.26em;
+                text-transform: uppercase;
+                color: rgba(104, 74, 38, 0.95);
+                white-space: nowrap;
+                text-shadow: 0 1px 0 rgba(255, 252, 244, 0.55);
+                animation: ssHintPulse 2.6s ease-in-out infinite;
+            }
+
             @keyframes ssHintPulse {
-                0%, 100% { opacity: 0.5; letter-spacing: 0.26em; }
-                50%      { opacity: 1;   letter-spacing: 0.30em; }
+                0%, 100% { opacity: 0.62; letter-spacing: 0.26em; }
+                50%      { opacity: 1;    letter-spacing: 0.30em; }
+            }
+
+            /* ---- the swipe gesture ---- */
+            #ssRevealHint .ss-hint-gesture {
+                display: block;
+                width: 78px;
+                height: auto;
+                overflow: visible;
+            }
+
+            #ssRevealHint .ss-hint-gesture g {
+                fill: none;
+                stroke: rgba(112, 82, 44, 0.85);
+                stroke-width: 1.5;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+            #ssRevealHint .ss-hint-ring { opacity: 0.5; }
+            #ssRevealHint .ss-hint-dot  { fill: rgba(112, 82, 44, 0.9); stroke: none; }
+
+            /* the touch point travels left to right, fading in and out */
+            #ssRevealHint .ss-hint-touch {
+                animation: ssHintSwipe 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+            }
+
+            @keyframes ssHintSwipe {
+                0%        { transform: translateX(0);    opacity: 0; }
+                14%       { transform: translateX(2px);  opacity: 1; }
+                68%       { transform: translateX(23px); opacity: 1; }
+                86%, 100% { transform: translateX(26px); opacity: 0; }
+            }
+
+            /* chevrons flick on just ahead of the travelling dot */
+            #ssRevealHint .ss-hint-chevrons path {
+                opacity: 0.28;
+                animation: ssHintChev 2.6s ease-in-out infinite;
+            }
+
+            #ssRevealHint .ss-hint-chevrons path:nth-child(2) { animation-delay: 0.18s; }
+
+            @keyframes ssHintChev {
+                0%, 42%, 100% { opacity: 0.24; }
+                64%           { opacity: 1; }
             }
 
             #ssSaveDate.ss-started #ssRevealHint,
@@ -1165,7 +1222,11 @@
             }
 
             @media (prefers-reduced-motion: reduce) {
-                #ssRevealHint { animation: none; opacity: 0.8; }
+                #ssRevealHint { opacity: 0.85; }
+                #ssRevealHint .ss-hint-label,
+                #ssRevealHint .ss-hint-touch,
+                #ssRevealHint .ss-hint-chevrons path { animation: none; }
+                #ssRevealHint .ss-hint-chevrons path { opacity: 0.7; }
             }
         </style>
         <div id="ssSaveDate">
@@ -1187,7 +1248,19 @@
                         Add to calendar
                     </button>
                 </div>
-                <div id="ssRevealHint">Swipe to reveal</div>
+                <div id="ssRevealHint">
+                    <svg class="ss-hint-gesture" viewBox="0 0 72 24" aria-hidden="true">
+                        <g class="ss-hint-chevrons">
+                            <path d="M50 7.5 L55.5 12 L50 16.5"/>
+                            <path d="M59 7.5 L64.5 12 L59 16.5"/>
+                        </g>
+                        <g class="ss-hint-touch">
+                            <circle class="ss-hint-ring" cx="13" cy="12" r="8.5"/>
+                            <circle class="ss-hint-dot" cx="13" cy="12" r="3.4"/>
+                        </g>
+                    </svg>
+                    <span class="ss-hint-label">Swipe to reveal</span>
+                </div>
             </div>
             <button type="button" id="ssRevealBtn">Reveal the date</button>
         </div>
