@@ -1205,14 +1205,28 @@
 
                    DATE_EASE
                        Pacing of the text itself, independent of the roll.
-                         1    date tracks the roll exactly (as fast as it can)
-                         1.6  about the same pace as the old 108/20 setup
-                         2    noticeably slower through the middle  <- current
-                         2.5  slower still, most of the text arriving late on
-                       It only ever SLOWS the date — the roll's flat edge is still
-                       a hard ceiling, so the text can never overtake the paper no
-                       matter what you set here. Whatever the value, it lands on
-                       exactly 100% as the swipe completes.
+                         1    text tracks the roll 1:1  <- current, no drift
+                         1.6  holds back through the middle
+                         2    noticeably slower through the middle
+                       Anything above 1 makes the text LATE relative to the roll,
+                       worst around the halfway point. It only ever slows the
+                       text — it can never overtake the paper. Whatever the value,
+                       it lands on exactly 100% as the swipe completes.
+
+                   THE SPAN RULE — read this if the text drifts
+                       ROLL_TO - ROLL_LAG must equal 100.
+
+                       That difference is how much roll travel the text's reveal is
+                       spread across. The card is 100 wide, so anything other than
+                       100 means the text sweeps at a different rate than the roll
+                       and drifts as it crosses:
+
+                         span < 100   text sweeps FASTER than the roll. The left
+                                      of the date reveals late, the middle looks
+                                      right, the right reveals early.
+                         span > 100   the reverse: left early, right late.
+
+                       Fix the span first, then use DATE_EASE for pacing.
 
                    EASE
                        The roll's speed curve. Leave as t => t if it travels at a
@@ -1245,7 +1259,7 @@
                     ROLL_LAG:      20,
                     EASE:          function(t) { return t; },
 
-                    DATE_EASE:     2.0,
+                    DATE_EASE:     1.0,
 
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
