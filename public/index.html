@@ -1310,7 +1310,7 @@
             section.classList.add('ss-revealed');
             try {
                 window.ssDateRevealed = true;
-                localStorage.setItem(STORAGE_KEY, '1');
+
             } catch (err) {}
             try {
                 document.dispatchEvent(new CustomEvent('ss:date-revealed'));
