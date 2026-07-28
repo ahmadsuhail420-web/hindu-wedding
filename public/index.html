@@ -1186,53 +1186,36 @@
                        static hold before the roll starts moving, set VIDEO_IN to
                        0.12 and the swipe skips it. Same idea at the tail.
 
-                   ROLL_FROM / ROLL_TO
-                       Where the roll's leading edge sits, as a % across the card,
-                       at VIDEO_IN and at VIDEO_OUT. If the roll starts just inside
-                       the left edge and exits off the right, that's something like
-                       4 and 108. Values past 100 are fine and expected.
+                   EDGE_PATH — the timing map, and your letter-by-letter control
+                       A list of [progress, edge%] keyframes:
 
-                       RULE: for the date to finish exactly as the roll clears the
-                       card, set ROLL_TO = 100 + ROLL_LAG. Any less and the last
-                       sliver of text is still under the roll at the end, so it
-                       snaps in on completion instead of arriving cleanly.
+                         progress   swipe position, 0 (start) .. 1 (done)
+                         edge%      how far across the card the text is revealed
+                                    up to, at that moment
+
+                       Between keyframes the edge moves in a straight line; the
+                       list must start at [0, ...] and end at [1, 100]. Rolls in
+                       real footage speed up and slow down — add a keyframe
+                       wherever the reveal runs early or late and pull its edge%
+                       down (later) or up (earlier).
+
+                       To tune PER LETTER: each part of the date lives at a fixed
+                       band across the card —
+
+                         "08"  ~ 22–38%     "DEC"  ~ 42–58%    "2026" ~ 58–80%
+                         (turn DEBUG on: the blue line shows edge%, so you can
+                          read each letter's band off your own layout precisely)
+
+                       If "2026" appears too early, find the progress where the
+                       blue line crosses ~58 and lower that keyframe's edge%, or
+                       add one there. The letters reveal exactly when the edge
+                       passes their band — nothing else to it.
 
                    ROLL_LAG
-                       How far BEHIND the roll's leading edge the paper is actually
-                       flat. The date is cut off at that trailing point, so it can
-                       never sit on the roll or run ahead of it. Roughly the width
-                       of the roll cylinder, as a % of card width.
-
-                   DATE_EASE
-                       Pacing of the text itself, independent of the roll.
-                         1    text tracks the roll 1:1  <- current, no drift
-                         1.6  holds back through the middle
-                         2    noticeably slower through the middle
-                       Anything above 1 makes the text LATE relative to the roll,
-                       worst around the halfway point. It only ever slows the
-                       text — it can never overtake the paper. Whatever the value,
-                       it lands on exactly 100% as the swipe completes.
-
-                   THE SPAN RULE — read this if the text drifts
-                       ROLL_TO - ROLL_LAG must equal 100.
-
-                       That difference is how much roll travel the text's reveal is
-                       spread across. The card is 100 wide, so anything other than
-                       100 means the text sweeps at a different rate than the roll
-                       and drifts as it crosses:
-
-                         span < 100   text sweeps FASTER than the roll. The left
-                                      of the date reveals late, the middle looks
-                                      right, the right reveals early.
-                         span > 100   the reverse: left early, right late.
-
-                       Fix the span first, then use DATE_EASE for pacing.
-
-                   EASE
-                       The roll's speed curve. Leave as t => t if it travels at a
-                       constant rate. If it starts slow and speeds up, try
-                       function(t) { return t * t; }. If it starts fast and eases
-                       out, try function(t) { return 1 - (1 - t) * (1 - t); }.
+                       Safety margin: the edge is additionally capped at (actual
+                       roll position - ROLL_LAG) so text can never sit on the roll
+                       even if a keyframe is set too eager. With EDGE_PATH doing
+                       the timing, this is a backstop, not the main control.
 
                    ---- 2. How the swipe itself feels ---------------------------
                    DRAG_SPAN     finger travel for a full reveal, as a multiple of
@@ -1245,21 +1228,37 @@
                                  button appears for guests who haven't managed it.
 
                    ---- 3. Calibrating -----------------------------------------
-                   Set DEBUG to true. A hairline marker rides the mask edge and
-                   the live numbers print to the console. Swipe slowly and adjust
-                   ROLL_FROM / ROLL_TO until the marker sits exactly on the roll,
-                   then raise ROLL_LAG until the date stops peeking out from under
-                   it. Set DEBUG back to false when you're happy.
+                   Set DEBUG to true. Two hairlines appear on the card: blue is
+                   the text's reveal edge (EDGE_PATH), red is where the linear
+                   ROLL_APPROX guess puts the roll — plus live numbers in the
+                   console. Swipe slowly; wherever text shows ahead of the roll,
+                   note the progress from the console and lower that region's
+                   edge% in EDGE_PATH (or add a keyframe). Set DEBUG back to
+                   false when you're happy.
                    ============================================================= */
                 var CONFIG = {
                     VIDEO_IN:      0.00,
                     VIDEO_OUT:     1.00,
+
+                    /* [progress, edge%] keyframes — the reveal's timing map.
+                       Starts where your perfect ROLL_LAG=20 start was (-20),
+                       then deliberately slower through the middle and late
+                       stretch, because the roll in the footage decelerates. */
+                    EDGE_PATH: [
+                        [0.00, -20],
+                        [0.25,   8],
+                        [0.50,  32],
+                        [0.75,  60],
+                        [0.90,  82],
+                        [1.00, 100]
+                    ],
+
+                    /* backstop only: a rough linear guess of the roll, used to
+                       cap the edge so text can't sit on the roll even if a
+                       keyframe above is set too eager */
                     ROLL_FROM:     0,
                     ROLL_TO:       120,
                     ROLL_LAG:      20,
-                    EASE:          function(t) { return t; },
-
-                    DATE_EASE:     1.0,
 
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
@@ -1306,32 +1305,34 @@
 
                 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
-                /* where the roll's leading edge sits, in % across the card, at a
-                   given swipe progress — the single source of truth for both the
-                   video frame and the mask */
+                /* rough linear guess of the roll's leading edge — used only for
+                   the DEBUG red line and the safety cap below */
                 function rollEdgeAt(p) {
-                    var t = CONFIG.EASE(clamp01(p));
-                    return CONFIG.ROLL_FROM + (CONFIG.ROLL_TO - CONFIG.ROLL_FROM) * t;
+                    return CONFIG.ROLL_FROM + (CONFIG.ROLL_TO - CONFIG.ROLL_FROM) * clamp01(p);
                 }
 
-                /* how far the date is allowed to have been revealed at a given
-                   progress. Two limits, whichever is tighter wins:
+                /* the EDGE_PATH keyframes, interpolated: straight lines between
+                   neighbouring [progress, edge%] pairs */
+                function edgePathAt(p) {
+                    var k = CONFIG.EDGE_PATH;
+                    if (p <= k[0][0]) return k[0][1];
+                    for (var i = 1; i < k.length; i++) {
+                        if (p <= k[i][0]) {
+                            var seg = k[i][0] - k[i - 1][0] || 1;
+                            var t = (p - k[i - 1][0]) / seg;
+                            return k[i - 1][1] + (k[i][1] - k[i - 1][1]) * t;
+                        }
+                    }
+                    return k[k.length - 1][1];
+                }
 
-                     flat  — the physical one. The paper is only lying down up to
-                             ROLL_LAG behind the roll, so the date can never be
-                             shown past this. Guarantees it never runs ahead of
-                             the roll or sits on top of it.
-
-                     eased — the pacing one. DATE_EASE > 1 holds the text back
-                             through the middle of the swipe so it unveils more
-                             slowly, then brings it home to exactly 100% as the
-                             roll reaches the end. DATE_EASE = 1 disables it and
-                             the date simply tracks the roll. */
+                /* how far the date is revealed at a given progress:
+                   the EDGE_PATH timing map, additionally capped so the text can
+                   never pass ROLL_LAG behind the (approximate) roll position */
                 function dateEdgeAt(p) {
                     p = clamp01(p);
-                    var flat  = rollEdgeAt(p) - CONFIG.ROLL_LAG;
-                    var eased = 100 * Math.pow(p, CONFIG.DATE_EASE);
-                    return Math.min(100, flat, eased);
+                    var cap = rollEdgeAt(p) - CONFIG.ROLL_LAG;
+                    return Math.min(100, cap, edgePathAt(p));
                 }
 
                 function applyProgress(p) {
