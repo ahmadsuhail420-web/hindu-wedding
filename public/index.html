@@ -1155,7 +1155,7 @@
         var btn = document.getElementById('ssRevealBtn');
         if (!section || !wrap || !video) return;
 
-        var STORAGE_KEY = 'ssDateRevealed';
+
         var THRESHOLD = 0.62;
 
         var petals = null;
@@ -1185,7 +1185,7 @@
         var completeRaf = null;
 
         var alreadyDone = false;
-        try { alreadyDone = localStorage.getItem(STORAGE_KEY) === '1'; } catch (err) {}
+
 
         function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
@@ -1207,10 +1207,26 @@
         }
 
         function onMeta() {
-            duration = video.duration || 0;
-            measure();
-            applyProgress(revealed ? 1 : progress);
+    duration = video.duration || 0;
+    measure();
+    if (!revealed) {
+        var p = video.play();
+        if (p && p.then) {
+            p.then(function() {
+                video.pause();
+                applyProgress(progress);
+            }).catch(function() {
+                applyProgress(progress);
+            });
+        } else {
+            video.pause();
+            applyProgress(progress);
         }
+    } else {
+        applyProgress(1);
+    }
+}
+
         video.addEventListener('loadedmetadata', onMeta);
 
         var rt;
@@ -1300,16 +1316,6 @@
                 document.dispatchEvent(new CustomEvent('ss:date-revealed'));
             } catch (err) {}
             shower();
-        }
-
-        if (alreadyDone) {
-            revealed = true;
-            started = true;
-            progress = 1;
-            section.classList.add('ss-started');
-            section.classList.add('ss-revealed');
-            try { window.ssDateRevealed = true; } catch (err) {}
-            if (textEl) textEl.style.setProperty('--r', '100');
         }
 
         setTimeout(function() {
