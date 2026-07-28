@@ -917,15 +917,15 @@
         gap: 2px;
         --r: 0; /* 0–100, driven every frame from JS by swipe progress */
         -webkit-mask-image: linear-gradient(to right,
-            #000 0%,
-            #000 max(0%, calc(var(--r) * 1% - 6%)),
-            transparent calc(var(--r) * 1% + 6%),
-            transparent 100%);
-        mask-image: linear-gradient(to right,
-            #000 0%,
-            #000 max(0%, calc(var(--r) * 1% - 6%)),
-            transparent calc(var(--r) * 1% + 6%),
-            transparent 100%);
+        #000 0%,
+        #000 max(0%, calc(var(--r) * 1% - 6%)),
+        transparent calc(var(--r) * 1%),
+        transparent 100%);
+    mask-image: linear-gradient(to right,
+        #000 0%,
+        #000 max(0%, calc(var(--r) * 1% - 6%)),
+        transparent calc(var(--r) * 1%),
+        transparent 100%);
     }
 
     #ssRevealWrap .ss-sd-day {
@@ -1206,26 +1206,28 @@
             dragDistance = Math.max(220, r.width * 0.9);
         }
 
-        function onMeta() {
+    function onMeta() {
     duration = video.duration || 0;
     measure();
-    if (!revealed) {
+    if (revealed) {
+        video.currentTime = duration;
+    } else {
+        // prime: force a frame to paint, then rewind
         var p = video.play();
         if (p && p.then) {
             p.then(function() {
                 video.pause();
-                applyProgress(progress);
+                video.currentTime = 0;
             }).catch(function() {
-                applyProgress(progress);
+                video.currentTime = 0;
             });
         } else {
             video.pause();
-            applyProgress(progress);
+            video.currentTime = 0;
         }
-    } else {
-        applyProgress(1);
     }
 }
+
 
         video.addEventListener('loadedmetadata', onMeta);
 
