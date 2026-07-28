@@ -900,11 +900,30 @@
                 padding: 12px;
                 background: #fdf7ea;
                 z-index: 2;
-                opacity: 0;
                 pointer-events: none;
+                /* --reveal (0..1) sweeps a soft-edged wipe left-to-right, driven from JS
+                   on every drag frame — the card gradually fades into view over the
+                   still-visible video rather than snapping on */
+                --reveal: 0;
+                -webkit-mask-image: linear-gradient(to right,
+                    #000 0%,
+                    #000 calc(var(--reveal) * 100% - 22%),
+                    transparent calc(var(--reveal) * 100%));
+                mask-image: linear-gradient(to right,
+                    #000 0%,
+                    #000 calc(var(--reveal) * 100% - 22%),
+                    transparent calc(var(--reveal) * 100%));
+                -webkit-mask-size: 100% 100%;
+                mask-size: 100% 100%;
+                -webkit-mask-repeat: no-repeat;
+                mask-repeat: no-repeat;
             }
 
+            /* once fully revealed, drop the mask entirely so nothing lingers
+               faded at the trailing edge — the card is simply, fully there */
             #ssSaveDate.ss-revealed #ssRevealWrap .ss-sd-under {
+                -webkit-mask-image: none;
+                mask-image: none;
                 pointer-events: auto;
             }
 
@@ -1168,9 +1187,9 @@
                     if (duration) {
                         video.currentTime = progress * duration;
                     }
-                    /* the date gradually fades in on top of the (always-visible) video
-                       as the paper is swiped open, left to right */
-                    if (under) under.style.opacity = progress;
+                    /* the date sweeps into view left-to-right over the (always-visible)
+                       video as the paper is swiped open — a soft-edged wipe, not a snap */
+                    if (under) under.style.setProperty('--reveal', progress);
                 }
 
                 function measure() {
@@ -1278,7 +1297,7 @@ function onMeta() {
                     started = true;
                     section.classList.add('ss-started');
                     section.classList.add('ss-revealed');
-                    if (under) under.style.opacity = 1;
+                    if (under) under.style.setProperty('--reveal', 1);
                     try {
                         window.ssDateRevealed = true;
                         localStorage.setItem(STORAGE_KEY, '1');
@@ -1295,7 +1314,7 @@ function onMeta() {
                     progress = 1;
                     section.classList.add('ss-started');
                     section.classList.add('ss-revealed');
-                    if (under) under.style.opacity = 1;
+                    if (under) under.style.setProperty('--reveal', 1);
                     try { window.ssDateRevealed = true; } catch (err) {}
                 }
 
