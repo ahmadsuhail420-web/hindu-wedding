@@ -1199,11 +1199,16 @@
                 display: block;
             }
 
-            #ssPetals span {
+            #ssPetals img {
                 position: absolute;
-                top: -10vh;
+                top: -14vh;
+                display: block;
+                height: auto;
                 will-change: transform, opacity;
                 animation: ssPetalFall linear forwards;
+                /* the artwork is on transparent ground; a whisper of shadow keeps
+                   the blooms from looking pasted on over light sections */
+                filter: drop-shadow(0 3px 5px rgba(120, 60, 70, 0.18));
             }
 
             @keyframes ssPetalFall {
@@ -1377,6 +1382,11 @@
                     EXTRAS_FROM:   60,
                     EXTRAS_TO:     82,
 
+                    /* the flower shower on reveal — watercolour artwork, not emoji */
+                    PETAL_SRC:     '/image/petals.webp',
+                    PETAL_MIN:     22,
+                    PETAL_MAX:     54,
+
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
                     THRESHOLD:     0.90,
@@ -1388,6 +1398,11 @@
                 };
 
                 var petals = null;
+
+                /* pull the bloom artwork into cache now — the shower fires the
+                   instant the date lands, and a cold fetch would drop the first
+                   few flowers */
+                try { (new Image()).src = CONFIG.PETAL_SRC; } catch (err) {}
 
                 /* the shower layer is created lazily and lives at the end of <body> */
                 function petalLayer() {
@@ -1683,10 +1698,14 @@
                     for (var i = 0; i < count; i++) {
                         (function(i) {
                             setTimeout(function() {
-                                var f = document.createElement('span');
-                                f.textContent = '\u{1F33C}';
+                                var f = document.createElement('img');
+                                f.src = CONFIG.PETAL_SRC;
+                                f.alt = '';
+                                f.setAttribute('aria-hidden', 'true');
+                                f.draggable = false;
                                 f.style.left = (Math.random() * 100) + '%';
-                                f.style.fontSize = (14 + Math.random() * 20) + 'px';
+                                f.style.width = (CONFIG.PETAL_MIN
+                                    + Math.random() * (CONFIG.PETAL_MAX - CONFIG.PETAL_MIN)) + 'px';
                                 f.style.opacity = 0;
                                 f.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
                                 f.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
