@@ -1212,10 +1212,22 @@
                        passes their band — nothing else to it.
 
                    ROLL_LAG
-                       Safety margin: the edge is additionally capped at (actual
-                       roll position - ROLL_LAG) so text can never sit on the roll
-                       even if a keyframe is set too eager. With EDGE_PATH doing
-                       the timing, this is a backstop, not the main control.
+                       DEBUG red line only. EDGE_PATH is the sole authority over
+                       the reveal — nothing silently overrides your keyframes.
+
+                   WHY TEXT CAN FINISH BEFORE THE SWIPE DOES
+                       Two separate causes, both worth knowing:
+
+                       a) The mask edge is invisible except where it crosses
+                          text. "08 DEC 2026" only spans about 22–80% of the
+                          card, so once the edge passes 80 there is nothing left
+                          to reveal — the rest of the swipe moves across blank
+                          paper. Keep the last text keyframe (80) near progress
+                          1.0 so the letters use the whole gesture.
+
+                       b) THRESHOLD. Let go past it and the reveal completes
+                          itself, however far along the edge actually is. Set it
+                          low and guests never see the end of your path.
 
                    ---- 2. How the swipe itself feels ---------------------------
                    DRAG_SPAN     finger travel for a full reveal, as a multiple of
@@ -1241,28 +1253,26 @@
                     VIDEO_OUT:     1.00,
 
                     /* [progress, edge%] keyframes — the reveal's timing map.
-                       Starts where your perfect ROLL_LAG=20 start was (-20),
-                       then deliberately slower through the middle and late
-                       stretch, because the roll in the footage decelerates. */
+                       The blank margins (left of ~22, right of ~80) hold no text,
+                       so the edge crosses them fast; the three letter groups get
+                       an even quarter of the swipe each. */
                     EDGE_PATH: [
                         [0.00, -20],
-                        [0.25,   8],
-                        [0.50,  32],
-                        [0.70,  56],   /* "08 DEC" fully out by here (~C ends at 58) */
-                        [0.90,  74],   /* slow stretch: "2026" eases out gradually */
-                        [1.00, 100]
+                        [0.15,  18],   /* blank left margin — nothing to see yet */
+                        [0.42,  38],   /* "08"   fully out */
+                        [0.70,  58],   /* "DEC"  fully out */
+                        [0.97,  80],   /* "2026" fully out, right at the end */
+                        [1.00, 100]    /* blank right margin */
                     ],
 
-                    /* backstop only: a rough linear guess of the roll, used to
-                       cap the edge so text can't sit on the roll even if a
-                       keyframe above is set too eager */
+                    /* DEBUG red line only — does not constrain the reveal */
                     ROLL_FROM:     0,
                     ROLL_TO:       120,
                     ROLL_LAG:      20,
 
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
-                    THRESHOLD:     0.62,
+                    THRESHOLD:     0.90,
                     SNAP_MS:       380,
                     SNAP_EXTRA:    260,
                     SKIP_AFTER_MS: 15000,
@@ -1305,8 +1315,9 @@
 
                 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
-                /* rough linear guess of the roll's leading edge — used only for
-                   the DEBUG red line and the safety cap below */
+                /* rough linear guess of the roll's leading edge — DEBUG line only.
+                   It does NOT constrain the reveal: EDGE_PATH is the single
+                   authority, so a keyframe you set is the edge you get. */
                 function rollEdgeAt(p) {
                     return CONFIG.ROLL_FROM + (CONFIG.ROLL_TO - CONFIG.ROLL_FROM) * clamp01(p);
                 }
@@ -1326,13 +1337,8 @@
                     return k[k.length - 1][1];
                 }
 
-                /* how far the date is revealed at a given progress:
-                   the EDGE_PATH timing map, additionally capped so the text can
-                   never pass ROLL_LAG behind the (approximate) roll position */
                 function dateEdgeAt(p) {
-                    p = clamp01(p);
-                    var cap = rollEdgeAt(p) - CONFIG.ROLL_LAG;
-                    return Math.min(100, cap, edgePathAt(p));
+                    return Math.min(100, edgePathAt(clamp01(p)));
                 }
 
                 function applyProgress(p) {
