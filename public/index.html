@@ -1192,11 +1192,27 @@
                        the left edge and exits off the right, that's something like
                        4 and 108. Values past 100 are fine and expected.
 
+                       RULE: for the date to finish exactly as the roll clears the
+                       card, set ROLL_TO = 100 + ROLL_LAG. Any less and the last
+                       sliver of text is still under the roll at the end, so it
+                       snaps in on completion instead of arriving cleanly.
+
                    ROLL_LAG
                        How far BEHIND the roll's leading edge the paper is actually
                        flat. The date is cut off at that trailing point, so it can
                        never sit on the roll or run ahead of it. Roughly the width
                        of the roll cylinder, as a % of card width.
+
+                   DATE_EASE
+                       Pacing of the text itself, independent of the roll.
+                         1    date tracks the roll exactly (as fast as it can)
+                         1.6  about the same pace as the old 108/20 setup
+                         2    noticeably slower through the middle  <- current
+                         2.5  slower still, most of the text arriving late on
+                       It only ever SLOWS the date — the roll's flat edge is still
+                       a hard ceiling, so the text can never overtake the paper no
+                       matter what you set here. Whatever the value, it lands on
+                       exactly 100% as the swipe completes.
 
                    EASE
                        The roll's speed curve. Leave as t => t if it travels at a
@@ -1225,9 +1241,11 @@
                     VIDEO_IN:      0.00,
                     VIDEO_OUT:     1.00,
                     ROLL_FROM:     0,
-                    ROLL_TO:       108,
+                    ROLL_TO:       120,
                     ROLL_LAG:      20,
                     EASE:          function(t) { return t; },
+
+                    DATE_EASE:     2.0,
 
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
@@ -1282,6 +1300,26 @@
                     return CONFIG.ROLL_FROM + (CONFIG.ROLL_TO - CONFIG.ROLL_FROM) * t;
                 }
 
+                /* how far the date is allowed to have been revealed at a given
+                   progress. Two limits, whichever is tighter wins:
+
+                     flat  — the physical one. The paper is only lying down up to
+                             ROLL_LAG behind the roll, so the date can never be
+                             shown past this. Guarantees it never runs ahead of
+                             the roll or sits on top of it.
+
+                     eased — the pacing one. DATE_EASE > 1 holds the text back
+                             through the middle of the swipe so it unveils more
+                             slowly, then brings it home to exactly 100% as the
+                             roll reaches the end. DATE_EASE = 1 disables it and
+                             the date simply tracks the roll. */
+                function dateEdgeAt(p) {
+                    p = clamp01(p);
+                    var flat  = rollEdgeAt(p) - CONFIG.ROLL_LAG;
+                    var eased = 100 * Math.pow(p, CONFIG.DATE_EASE);
+                    return Math.min(100, flat, eased);
+                }
+
                 function applyProgress(p) {
                     progress = clamp01(p);
 
@@ -1291,9 +1329,7 @@
                         video.currentTime = (CONFIG.VIDEO_IN + span * progress) * duration;
                     }
 
-                    /* the date is cut off ROLL_LAG behind the roll, so it only ever
-                       exists in the strip the roll has already laid flat */
-                    var edge = Math.min(100, rollEdgeAt(progress) - CONFIG.ROLL_LAG);
+                    var edge = dateEdgeAt(progress);
                     if (under) under.style.setProperty('--ss-edge', edge + '%');
                     if (CONFIG.DEBUG) debugPaint(progress, edge);
                 }
