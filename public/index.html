@@ -905,26 +905,38 @@
                 /* keeps the lettering legible against the moving footage beneath */
                 text-shadow: 0 1px 2px rgba(253, 247, 234, 0.85),
                              0 0 10px rgba(253, 247, 234, 0.6);
-                /* --reveal (0..1) sweeps a soft-edged wipe left-to-right, driven from JS
-                   on every drag frame — the card gradually fades into view over the
-                   still-visible video rather than snapping on */
+                /* ---- reveal geometry -------------------------------------------
+                   --reveal (0..1) is the swipe progress, written from JS each frame.
+
+                   --roll-lag is how far BEHIND the roll's leading edge the paper is
+                   actually lying flat. The date is clipped to that trailing point, so
+                   it can never bleed onto the roll itself or appear ahead of it — it
+                   only exists in the area the roll has already laid open.
+
+                   The edge runs from -roll-lag (nothing showing) to exactly 100% at
+                   full reveal, so the last sliver lands cleanly with no end-snap.
+                   ---------------------------------------------------------------- */
                 --reveal: 0;
+                --roll-lag: 8%;
+                --ss-edge: calc((100% + var(--roll-lag)) * var(--reveal) - var(--roll-lag));
+
+                /* two stops at the same position = a hard, clean cut (no feather) */
                 -webkit-mask-image: linear-gradient(to right,
-                    #000 0%,
-                    #000 calc(var(--reveal) * 100% - 22%),
-                    transparent calc(var(--reveal) * 100%));
+                    #000 0,
+                    #000 var(--ss-edge),
+                    transparent var(--ss-edge));
                 mask-image: linear-gradient(to right,
-                    #000 0%,
-                    #000 calc(var(--reveal) * 100% - 22%),
-                    transparent calc(var(--reveal) * 100%));
+                    #000 0,
+                    #000 var(--ss-edge),
+                    transparent var(--ss-edge));
                 -webkit-mask-size: 100% 100%;
                 mask-size: 100% 100%;
                 -webkit-mask-repeat: no-repeat;
                 mask-repeat: no-repeat;
             }
 
-            /* once fully revealed, drop the mask entirely so nothing lingers
-               faded at the trailing edge — the card is simply, fully there */
+            /* fully revealed: drop the mask so the card is simply, wholly there
+               (the edge has already reached 100%, so nothing visibly changes) */
             #ssSaveDate.ss-revealed #ssRevealWrap .ss-sd-under {
                 -webkit-mask-image: none;
                 mask-image: none;
@@ -1029,13 +1041,21 @@
             #ssSaveDate.ss-offer-skip #ssRevealBtn { display: block; }
             #ssSaveDate.ss-revealed #ssRevealBtn { display: none; }
 
-            /* ---- add-to-calendar CTA: appears with the revealed date ---- */
+            /* ---- add-to-calendar CTA: appears with the revealed date ----
+               Absolutely positioned, so it sits OUTSIDE the flex column that
+               centres the date. It can appear, animate and disappear without
+               ever contributing height — the date holds exactly the same
+               position before, during and after the swipe. */
             #ssCalBtn {
-                display: none;
+                position: absolute;
+                left: 50%;
+                bottom: 5%;
+                transform: translateX(-50%);
+                margin: 0;
+                display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 gap: 8px;
-                margin: 18px auto 0;
                 padding: 9px 20px;
                 background: transparent;
                 border: 1px solid rgba(166,125,43,0.45);
@@ -1048,17 +1068,24 @@
                 color: #a67d2b;
                 cursor: pointer;
                 white-space: nowrap;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                text-shadow: none;
                 transition: border-color 0.35s ease, color 0.35s ease, background 0.35s ease;
             }
 
             #ssSaveDate.ss-revealed #ssCalBtn {
-                display: inline-flex;
+                visibility: visible;
+                pointer-events: auto;
                 animation: ssCalIn 1.1s cubic-bezier(0.22,0.61,0.36,1) 0.9s both;
             }
 
+            /* translateX(-50%) is carried through both frames so the centring
+               survives the entrance animation */
             @keyframes ssCalIn {
-                from { opacity: 0; transform: translateY(14px); }
-                to   { opacity: 1; transform: translateY(0); }
+                from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+                to   { opacity: 1; transform: translateX(-50%) translateY(0); }
             }
 
             #ssCalBtn:hover {
@@ -1078,7 +1105,7 @@
             }
 
             @media screen and (max-width: 479px) {
-                #ssCalBtn { font-size: 9px; letter-spacing: 0.12em; text-indent: 0.12em; padding: 8px 15px; margin-top: 14px; gap: 6px; }
+                #ssCalBtn { font-size: 9px; letter-spacing: 0.12em; text-indent: 0.12em; padding: 8px 15px; gap: 6px; }
                 #ssCalBtn svg { width: 12px; height: 12px; }
             }
 
