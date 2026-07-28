@@ -898,9 +898,13 @@
                 justify-content: center;
                 gap: 2px;
                 padding: 12px;
-                background: #fdf7ea;
+                /* transparent — the torn-paper video shows through behind the date */
+                background: transparent;
                 z-index: 2;
                 pointer-events: none;
+                /* keeps the lettering legible against the moving footage beneath */
+                text-shadow: 0 1px 2px rgba(253, 247, 234, 0.85),
+                             0 0 10px rgba(253, 247, 234, 0.6);
                 /* --reveal (0..1) sweeps a soft-edged wipe left-to-right, driven from JS
                    on every drag frame — the card gradually fades into view over the
                    still-visible video rather than snapping on */
