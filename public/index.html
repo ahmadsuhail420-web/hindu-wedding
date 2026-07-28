@@ -889,30 +889,32 @@
                 cursor: grabbing;
             }
 
-            #ssRevealWrap .ss-sd-under {
+            /* ================= the two content layers =================
+               .ss-sd-under   masked — swipe-revealed with the sharp edge.
+                              Holds ONLY the date and the time.
+               .ss-sd-extras  unmasked — the day and the calendar CTA.
+                              Never touched by the swipe; fades in softly once
+                              the date is nearly out.
+               Both fill the card, and every line inside is absolutely placed
+               off a % of card height, so adding, removing or moving one line
+               can never shift any of the others.
+               ========================================================= */
+            #ssRevealWrap .ss-sd-under,
+            #ssRevealWrap .ss-sd-extras {
                 position: absolute;
                 inset: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 2px;
-                padding: 12px;
-                /* transparent — the torn-paper video shows through behind the date */
                 background: transparent;
                 z-index: 2;
                 pointer-events: none;
-                /* keeps the lettering legible against the moving footage beneath */
-                text-shadow: 0 1px 2px rgba(253, 247, 234, 0.85),
-                             0 0 10px rgba(253, 247, 234, 0.6);
+            }
+
+            #ssRevealWrap .ss-sd-under {
                 /* ---- reveal geometry -------------------------------------------
                    --ss-edge is written from JS on every frame: the point, as a %
                    across the card, up to which the paper is lying flat. Everything
                    left of it is visible, everything right of it is not.
 
-                   All the tuning (where the roll is, how far the date trails it,
-                   how fast the swipe moves) lives in the CONFIG block in the
-                   script below — not here.
+                   All the tuning lives in the CONFIG block in the script below.
                    ---------------------------------------------------------------- */
                 --ss-edge: -100%;
 
@@ -931,13 +933,40 @@
                 mask-repeat: no-repeat;
             }
 
-            /* fully revealed: drop the mask so the card is simply, wholly there
-               (the edge has already reached 100%, so nothing visibly changes) */
+            /* fully revealed: drop the mask (the edge is already at 100%, so
+               nothing visibly changes) */
             #ssSaveDate.ss-revealed #ssRevealWrap .ss-sd-under {
                 -webkit-mask-image: none;
                 mask-image: none;
+            }
+
+            /* the unmasked layer: opacity is driven per-frame from JS, so the
+               day and the CTA feather in gently instead of being cut in */
+            #ssRevealWrap .ss-sd-extras {
+                --extras: 0;
+                opacity: var(--extras);
+            }
+
+            #ssSaveDate.ss-revealed #ssRevealWrap .ss-sd-extras {
                 pointer-events: auto;
             }
+
+            /* ---- each line placed independently ---- */
+            #ssRevealWrap .ss-sd-day,
+            #ssRevealWrap .ss-sd-full,
+            #ssRevealWrap .ss-sd-time {
+                position: absolute;
+                left: 50%;
+                width: 100%;
+                padding: 0 10px;
+                margin: 0;
+                text-align: center;
+                transform: translate(-50%, -50%);
+            }
+
+            #ssRevealWrap .ss-sd-day  { top: 24%; }
+            #ssRevealWrap .ss-sd-full { top: 45.5%; }   /* unchanged from before */
+            #ssRevealWrap .ss-sd-time { top: 62%; }
 
             #ssRevealWrap .ss-sd-day {
                 font-family: 'Marcellus', Georgia, serif;
@@ -946,7 +975,18 @@
                 text-indent: 0.28em;
                 text-transform: uppercase;
                 color: #b09263;
-                margin-bottom: 10px;
+            }
+
+            /* ---- engraved ivory: cut into the paper ----
+               Light falls from above, so the upper lip of the incision is in
+               shadow and the lower lip catches a faint highlight. */
+            #ssRevealWrap .ss-sd-full,
+            #ssRevealWrap .ss-sd-time {
+                color: #f0e6d1;
+                text-shadow:
+                    0 -1px 1px rgba(46, 6, 12, 0.72),
+                    0  1px 0   rgba(255, 251, 242, 0.20),
+                    0  2px 4px rgba(28, 4, 8, 0.5);
             }
 
             #ssRevealWrap .ss-sd-full {
@@ -957,23 +997,13 @@
                 letter-spacing: 0.14em;
                 text-indent: 0.14em;
                 white-space: nowrap;
-                color: #a67d2b;
-                margin: 6px 0 2px;
-            }
-
-            #ssRevealWrap .ss-sd-rule {
-                width: 54px;
-                height: 1px;
-                background: #c8ab6d;
-                margin: 14px 0 12px;
-                opacity: 0.8;
             }
 
             #ssRevealWrap .ss-sd-time {
                 font-family: 'Cormorant Garamond', Georgia, serif;
                 font-style: italic;
                 font-size: 21px;
-                color: #8a6b4f;
+                line-height: 1.2;
             }
 
             #ssRevealVideo {
@@ -1064,24 +1094,16 @@
                 color: #a67d2b;
                 cursor: pointer;
                 white-space: nowrap;
-                opacity: 0;
-                visibility: hidden;
                 pointer-events: none;
                 text-shadow: none;
                 transition: border-color 0.35s ease, color 0.35s ease, background 0.35s ease;
             }
 
+            /* the button no longer animates itself in — it rides the .ss-sd-extras
+               layer's soft fade along with the day. Position and styling are
+               exactly as before; only what triggers its appearance changed. */
             #ssSaveDate.ss-revealed #ssCalBtn {
-                visibility: visible;
                 pointer-events: auto;
-                animation: ssCalIn 1.1s cubic-bezier(0.22,0.61,0.36,1) 0.9s both;
-            }
-
-            /* translateX(-50%) is carried through both frames so the centring
-               survives the entrance animation */
-            @keyframes ssCalIn {
-                from { opacity: 0; transform: translateX(-50%) translateY(14px); }
-                to   { opacity: 1; transform: translateX(-50%) translateY(0); }
             }
 
             #ssCalBtn:hover {
@@ -1137,8 +1159,9 @@
             @media screen and (max-width: 479px) {
                 #ssSaveDate { padding: 44px 16px 54px; }
                 #ssSaveDate .ss-sd-title { font-size: 27px; }
-                #ssRevealWrap .ss-sd-day { font-size: 10px; letter-spacing: 0.2em; text-indent: 0.2em; margin-bottom: 7px; }
+                #ssRevealWrap .ss-sd-day { font-size: 10px; letter-spacing: 0.2em; text-indent: 0.2em; }
                 #ssRevealWrap .ss-sd-full { font-size: 30px; letter-spacing: 0.12em; }
+                #ssRevealWrap .ss-sd-time { font-size: 17px; }
             }
 
             @media (prefers-reduced-motion: reduce) {
@@ -1150,11 +1173,15 @@
             <h2 class="ss-sd-title">Save the Date</h2>
             <div id="ssRevealWrap">
                 <video id="ssRevealVideo" src="/video/scratch-card.mp4" muted playsinline preload="auto" draggable="false" aria-label="Swipe to unroll the paper and reveal the wedding date"></video>
+                <!-- masked: revealed by the swipe with the sharp edge -->
                 <div class="ss-sd-under">
-                    <div class="ss-sd-day">Tuesday</div>
                     <div class="ss-sd-full">08 DEC 2026</div>
-                    <div class="ss-sd-rule"></div>
                     <div class="ss-sd-time">Four in the afternoon</div>
+                </div>
+
+                <!-- unmasked: feathers in once the date is nearly out -->
+                <div class="ss-sd-extras">
+                    <div class="ss-sd-day">Tuesday</div>
                     <button type="button" id="ssCalBtn">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
                         Add to calendar
@@ -1170,6 +1197,7 @@
                 var wrap = document.getElementById('ssRevealWrap');
                 var video = document.getElementById('ssRevealVideo');
                 var under = wrap.querySelector('.ss-sd-under');
+                var extras = wrap.querySelector('.ss-sd-extras');
                 var hint = document.getElementById('ssRevealHint');
                 var btn = document.getElementById('ssRevealBtn');
                 if (!section || !wrap || !video) return;
@@ -1270,6 +1298,12 @@
                     ROLL_TO:       120,
                     ROLL_LAG:      20,
 
+                    /* the day + "Add to calendar" are NOT masked. They feather in
+                       over this window, measured in edge% — i.e. once the date is
+                       nearly out. Widen the gap for a gentler fade. */
+                    EXTRAS_FROM:   60,
+                    EXTRAS_TO:     82,
+
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
                     THRESHOLD:     0.90,
@@ -1352,6 +1386,14 @@
 
                     var edge = dateEdgeAt(progress);
                     if (under) under.style.setProperty('--ss-edge', edge + '%');
+
+                    /* day + CTA feather in on their own window, unmasked */
+                    if (extras) {
+                        var span = CONFIG.EXTRAS_TO - CONFIG.EXTRAS_FROM || 1;
+                        extras.style.setProperty('--extras',
+                            clamp01((edge - CONFIG.EXTRAS_FROM) / span).toFixed(3));
+                    }
+
                     if (CONFIG.DEBUG) debugPaint(progress, edge);
                 }
 
@@ -1490,6 +1532,7 @@
                     section.classList.add('ss-started');
                     section.classList.add('ss-revealed');
                     if (under) under.style.setProperty('--ss-edge', '100%');
+                    if (extras) extras.style.setProperty('--extras', '1');
                     /* window-scoped only, so it dies with the page load */
                     try { window.ssDateRevealed = true; } catch (err) {}
                     try {
