@@ -906,19 +906,15 @@
                 text-shadow: 0 1px 2px rgba(253, 247, 234, 0.85),
                              0 0 10px rgba(253, 247, 234, 0.6);
                 /* ---- reveal geometry -------------------------------------------
-                   --reveal (0..1) is the swipe progress, written from JS each frame.
+                   --ss-edge is written from JS on every frame: the point, as a %
+                   across the card, up to which the paper is lying flat. Everything
+                   left of it is visible, everything right of it is not.
 
-                   --roll-lag is how far BEHIND the roll's leading edge the paper is
-                   actually lying flat. The date is clipped to that trailing point, so
-                   it can never bleed onto the roll itself or appear ahead of it — it
-                   only exists in the area the roll has already laid open.
-
-                   The edge runs from -roll-lag (nothing showing) to exactly 100% at
-                   full reveal, so the last sliver lands cleanly with no end-snap.
+                   All the tuning (where the roll is, how far the date trails it,
+                   how fast the swipe moves) lives in the CONFIG block in the
+                   script below — not here.
                    ---------------------------------------------------------------- */
-                --reveal: 0;
-                --roll-lag: 8%;
-                --ss-edge: calc((100% + var(--roll-lag)) * var(--reveal) - var(--roll-lag));
+                --ss-edge: -100%;
 
                 /* two stops at the same position = a hard, clean cut (no feather) */
                 -webkit-mask-image: linear-gradient(to right,
@@ -1178,7 +1174,70 @@
                 var btn = document.getElementById('ssRevealBtn');
                 if (!section || !wrap || !video) return;
 
-                var THRESHOLD = 0.62;
+                /* =============================================================
+                   REVEAL TUNING — everything adjustable lives here.
+                   Change these numbers, reload, swipe. Nothing below needs edits.
+                   =============================================================
+
+                   ---- 1. Match the mask to YOUR video's roll -------------------
+                   VIDEO_IN / VIDEO_OUT
+                       Which slice of the clip the swipe scrubs through, as a
+                       fraction of its runtime. If the first 12% of the clip is a
+                       static hold before the roll starts moving, set VIDEO_IN to
+                       0.12 and the swipe skips it. Same idea at the tail.
+
+                   ROLL_FROM / ROLL_TO
+                       Where the roll's leading edge sits, as a % across the card,
+                       at VIDEO_IN and at VIDEO_OUT. If the roll starts just inside
+                       the left edge and exits off the right, that's something like
+                       4 and 108. Values past 100 are fine and expected.
+
+                   ROLL_LAG
+                       How far BEHIND the roll's leading edge the paper is actually
+                       flat. The date is cut off at that trailing point, so it can
+                       never sit on the roll or run ahead of it. Roughly the width
+                       of the roll cylinder, as a % of card width.
+
+                   EASE
+                       The roll's speed curve. Leave as t => t if it travels at a
+                       constant rate. If it starts slow and speeds up, try
+                       function(t) { return t * t; }. If it starts fast and eases
+                       out, try function(t) { return 1 - (1 - t) * (1 - t); }.
+
+                   ---- 2. How the swipe itself feels ---------------------------
+                   DRAG_SPAN     finger travel for a full reveal, as a multiple of
+                                 card width. Lower = less swiping, faster reveal.
+                   DRAG_MIN_PX   floor for the above, so tiny screens stay usable.
+                   THRESHOLD     let go past this and it finishes on its own.
+                   SNAP_MS       base duration of that auto-finish.
+                   SNAP_EXTRA    added to SNAP_MS in proportion to distance left.
+                   SKIP_AFTER_MS how long before the "Reveal the date" fallback
+                                 button appears for guests who haven't managed it.
+
+                   ---- 3. Calibrating -----------------------------------------
+                   Set DEBUG to true. A hairline marker rides the mask edge and
+                   the live numbers print to the console. Swipe slowly and adjust
+                   ROLL_FROM / ROLL_TO until the marker sits exactly on the roll,
+                   then raise ROLL_LAG until the date stops peeking out from under
+                   it. Set DEBUG back to false when you're happy.
+                   ============================================================= */
+                var CONFIG = {
+                    VIDEO_IN:      0.00,
+                    VIDEO_OUT:     1.00,
+                    ROLL_FROM:     0,
+                    ROLL_TO:       108,
+                    ROLL_LAG:      8,
+                    EASE:          function(t) { return t; },
+
+                    DRAG_SPAN:     0.90,
+                    DRAG_MIN_PX:   220,
+                    THRESHOLD:     0.62,
+                    SNAP_MS:       380,
+                    SNAP_EXTRA:    260,
+                    SKIP_AFTER_MS: 15000,
+
+                    DEBUG:         false
+                };
 
                 var petals = null;
 
@@ -1215,42 +1274,85 @@
 
                 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
+                /* where the roll's leading edge sits, in % across the card, at a
+                   given swipe progress — the single source of truth for both the
+                   video frame and the mask */
+                function rollEdgeAt(p) {
+                    var t = CONFIG.EASE(clamp01(p));
+                    return CONFIG.ROLL_FROM + (CONFIG.ROLL_TO - CONFIG.ROLL_FROM) * t;
+                }
+
                 function applyProgress(p) {
                     progress = clamp01(p);
+
+                    /* scrub only the slice of the clip where the roll actually moves */
                     if (duration) {
-                        video.currentTime = progress * duration;
+                        var span = CONFIG.VIDEO_OUT - CONFIG.VIDEO_IN;
+                        video.currentTime = (CONFIG.VIDEO_IN + span * progress) * duration;
                     }
-                    /* the date sweeps into view left-to-right over the (always-visible)
-                       video as the paper is swiped open — a soft-edged wipe, not a snap */
-                    if (under) under.style.setProperty('--reveal', progress);
+
+                    /* the date is cut off ROLL_LAG behind the roll, so it only ever
+                       exists in the strip the roll has already laid flat */
+                    var edge = Math.min(100, rollEdgeAt(progress) - CONFIG.ROLL_LAG);
+                    if (under) under.style.setProperty('--ss-edge', edge + '%');
+                    if (CONFIG.DEBUG) debugPaint(progress, edge);
+                }
+
+                /* ---- calibration aid: only runs while CONFIG.DEBUG is true ---- */
+                var dbgMark = null, dbgRoll = null;
+                function debugPaint(p, edge) {
+                    if (!dbgMark) {
+                        var mk = function(color, label) {
+                            var d = document.createElement('div');
+                            d.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;z-index:9;'
+                                + 'pointer-events:none;background:' + color;
+                            d.title = label;
+                            wrap.appendChild(d);
+                            return d;
+                        };
+                        dbgRoll = mk('rgba(220,40,40,0.9)', 'roll edge');
+                        dbgMark = mk('rgba(40,120,220,0.9)', 'mask edge');
+                    }
+                    dbgRoll.style.left = rollEdgeAt(p) + '%';
+                    dbgMark.style.left = edge + '%';
+                    console.log('progress', p.toFixed(3),
+                                '| roll', rollEdgeAt(p).toFixed(1) + '%',
+                                '| mask', edge.toFixed(1) + '%',
+                                '| video', (video.currentTime || 0).toFixed(2) + 's');
                 }
 
                 function measure() {
                     var r = wrap.getBoundingClientRect();
-                    dragDistance = Math.max(220, r.width * 0.9);
+                    dragDistance = Math.max(CONFIG.DRAG_MIN_PX, r.width * CONFIG.DRAG_SPAN);
                 }
 
-function onMeta() {
-    duration = video.duration || 0;
-    measure();
-    if (revealed) {
-        video.currentTime = duration;
-    } else {
-        // prime: force a frame to paint, then rewind
-        var p = video.play();
-        if (p && p.then) {
-            p.then(function() {
-                video.pause();
-                video.currentTime = 0;
-            }).catch(function() {
-                video.currentTime = 0;
-            });
-        } else {
-            video.pause();
-            video.currentTime = 0;
-        }
-    }
-}
+                function onMeta() {
+                    duration = video.duration || 0;
+                    measure();
+
+                    /* rest on the configured first frame of the roll's travel,
+                       not necessarily the very start of the clip */
+                    var startAt = CONFIG.VIDEO_IN * duration;
+
+                    if (revealed) {
+                        video.currentTime = CONFIG.VIDEO_OUT * duration;
+                        return;
+                    }
+                    /* prime: force one frame to paint, then park at the start */
+                    var p = video.play();
+                    if (p && p.then) {
+                        p.then(function() {
+                            video.pause();
+                            video.currentTime = startAt;
+                        }).catch(function() {
+                            video.currentTime = startAt;
+                        });
+                    } else {
+                        video.pause();
+                        video.currentTime = startAt;
+                    }
+                    applyProgress(0);
+                }
 
                 video.addEventListener('loadedmetadata', onMeta);
 
@@ -1291,7 +1393,7 @@ function onMeta() {
                     dragging = false;
                     wrap.classList.remove('ss-dragging');
                     try { wrap.releasePointerCapture(pointerId); } catch (err) {}
-                    if (!revealed && progress >= THRESHOLD) {
+                    if (!revealed && progress >= CONFIG.THRESHOLD) {
                         complete();
                     }
                 }
@@ -1307,7 +1409,7 @@ function onMeta() {
                     if (revealed) return;
                     var from = progress;
                     var t0 = null;
-                    var dur = 380 + (1 - from) * 260;
+                    var dur = CONFIG.SNAP_MS + (1 - from) * CONFIG.SNAP_EXTRA;
                     if (completeRaf) cancelAnimationFrame(completeRaf);
                     function step(now) {
                         if (t0 === null) t0 = now;
@@ -1330,7 +1432,7 @@ function onMeta() {
                     started = true;
                     section.classList.add('ss-started');
                     section.classList.add('ss-revealed');
-                    if (under) under.style.setProperty('--reveal', 1);
+                    if (under) under.style.setProperty('--ss-edge', '100%');
                     /* window-scoped only, so it dies with the page load */
                     try { window.ssDateRevealed = true; } catch (err) {}
                     try {
@@ -1341,11 +1443,11 @@ function onMeta() {
 
                 setTimeout(function() {
                     if (!revealed) section.classList.add('ss-offer-skip');
-                }, 15000);
+                }, CONFIG.SKIP_AFTER_MS);
                 if (btn) {
                     btn.addEventListener('click', function() {
                         if (revealed) return;
-                        progress = Math.max(progress, THRESHOLD);
+                        progress = Math.max(progress, CONFIG.THRESHOLD);
                         complete();
                     });
                 }
