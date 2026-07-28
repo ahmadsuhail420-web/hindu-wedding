@@ -1151,7 +1151,6 @@
                 var btn = document.getElementById('ssRevealBtn');
                 if (!section || !wrap || !video) return;
 
-                var STORAGE_KEY = 'ssDateRevealed';
                 var THRESHOLD = 0.62;
 
                 var petals = null;
@@ -1181,8 +1180,11 @@
                 var scrubRaf = null;
                 var completeRaf = null;
 
-                var alreadyDone = false;
-                try { alreadyDone = localStorage.getItem(STORAGE_KEY) === '1'; } catch (err) {}
+                /* the reveal is deliberately NOT persisted — every visit starts the
+                   paper closed so the guest gets the moment again. Clear the key
+                   older builds wrote, so anyone who already opened the invite
+                   isn't left with stale state in their browser. */
+                try { localStorage.removeItem('ssDateRevealed'); } catch (err) {}
 
                 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
@@ -1302,24 +1304,12 @@ function onMeta() {
                     section.classList.add('ss-started');
                     section.classList.add('ss-revealed');
                     if (under) under.style.setProperty('--reveal', 1);
-                    try {
-                        window.ssDateRevealed = true;
-                        localStorage.setItem(STORAGE_KEY, '1');
-                    } catch (err) {}
+                    /* window-scoped only, so it dies with the page load */
+                    try { window.ssDateRevealed = true; } catch (err) {}
                     try {
                         document.dispatchEvent(new CustomEvent('ss:date-revealed'));
                     } catch (err) {}
                     shower();
-                }
-
-                if (alreadyDone) {
-                    revealed = true;
-                    started = true;
-                    progress = 1;
-                    section.classList.add('ss-started');
-                    section.classList.add('ss-revealed');
-                    if (under) under.style.setProperty('--reveal', 1);
-                    try { window.ssDateRevealed = true; } catch (err) {}
                 }
 
                 setTimeout(function() {
