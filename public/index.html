@@ -93,7 +93,9 @@
                 cursor: pointer;
                 -webkit-tap-highlight-color: transparent;
                 user-select: none;
-                transition: opacity 1.4s ease;
+                /* dissolves onto the already-playing film beneath; short, because
+                   the video's first frame continues the envelope image */
+                transition: opacity 0.6s ease;
             }
 
             #weiImg {
@@ -170,24 +172,33 @@
                 }
             }
 
+            /* Sits BEHIND the overlay, not above it. It is brought up at full
+               opacity while the overlay is still solid, then the overlay
+               dissolves over it — so at no instant are two semi-transparent
+               layers stacked, and the hero can never show through the seam.
+               (The old version cross-faded 0.8s in against 1.4s out, which left
+               a window where their combined coverage dipped below 100%.) */
             #weiVideoWrap {
                 position: fixed;
                 inset: 0;
-                z-index: 100000;
+                z-index: 99998;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: #F9F0E0;
                 opacity: 0;
-                transition: opacity 0.8s ease;
                 pointer-events: none;
             }
 
+            /* no transition here on purpose — it appears instantly, unseen
+               beneath the still-opaque overlay */
             #weiVideoWrap.wei-video-in {
                 opacity: 1;
                 pointer-events: all;
             }
 
+            /* the only fade this layer ever performs: the hand-off to the hero
+               once the envelope film has played out */
             #weiVideoWrap.wei-video-out {
                 opacity: 0;
                 transition: opacity 1.4s ease;
@@ -643,34 +654,64 @@
                 var iconPause = document.getElementById('weiIconPause');
                 var iconPlay = document.getElementById('weiIconPlay');
                 var done = false;
+                var OVERLAY_FADE_MS = 600;
 
                 function startVideo() {
                     if (done)
                         return;
                     done = true;
 
-                    // Fade out envelope
-                    overlay.style.opacity = '0';
-                    overlay.style.pointerEvents = 'none';
-                    setTimeout(function() {
-                        overlay.style.display = 'none';
-                    }, 1400);
-
-                    // Show and play video
+                    /* 1. Raise the video layer to full opacity FIRST. It sits
+                          behind the overlay, so nothing visibly changes yet —
+                          but the screen is now covered by an opaque layer that
+                          will still be there after the overlay goes. */
                     videoWrap.classList.add('wei-video-in');
+
+                    /* 2. Start the film and the music together. */
                     var vp = video.play();
                     if (vp && vp.catch)
                         vp.catch(function() {});
 
-                    // Start music simultaneously
                     audio.volume = 1;
                     var ap = audio.play();
                     if (ap && ap.catch)
                         ap.catch(function() {});
+
+                    /* 3. Only dissolve the overlay once the film has actually
+                          painted a frame — otherwise we'd fade onto a blank
+                          video element while it buffers. */
+                    whenVideoPainted(dissolveOverlay);
+                }
+
+                function whenVideoPainted(cb) {
+                    var fired = false;
+                    function go() {
+                        if (fired) return;
+                        fired = true;
+                        cb();
+                    }
+                    if (typeof video.requestVideoFrameCallback === 'function') {
+                        try { video.requestVideoFrameCallback(go); } catch (err) {}
+                    }
+                    video.addEventListener('playing', go, { once: true });
+                    video.addEventListener('timeupdate', go, { once: true });
+                    /* safety net: never leave the guest stuck on the envelope */
+                    setTimeout(go, 1200);
+                }
+
+                function dissolveOverlay() {
+                    overlay.style.opacity = '0';
+                    overlay.style.pointerEvents = 'none';
+                    setTimeout(function() {
+                        overlay.style.display = 'none';
+                    }, OVERLAY_FADE_MS + 100);
                 }
 
                 function endSequence() {
                     document.body.classList.add('wei-revealed');
+                    /* if we got here via a video error the overlay may still be
+                       up — clear it, or it would strand the guest on a dead frame */
+                    dissolveOverlay();
                     // Fade out video
                     videoWrap.classList.remove('wei-video-in');
                     videoWrap.classList.add('wei-video-out');
@@ -1384,8 +1425,8 @@
 
                     /* the flower shower on reveal — watercolour artwork, not emoji */
                     PETAL_SRC:     '/image/petals.webp',
-                    PETAL_MIN:     14,
-                    PETAL_MAX:     36,
+                    PETAL_MIN:     8,
+                    PETAL_MAX:     16,
 
                     DRAG_SPAN:     0.90,
                     DRAG_MIN_PX:   220,
