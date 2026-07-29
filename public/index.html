@@ -93,9 +93,12 @@
                 cursor: pointer;
                 -webkit-tap-highlight-color: transparent;
                 user-select: none;
-                /* dissolves onto the already-playing film beneath; short, because
-                   the video's first frame continues the envelope image */
-                transition: opacity 0.6s ease;
+                /* Hard cut, not a dissolve: welcome-bg.webp and the first frame
+                   of welcome-bg.mp4 are the same image, so swapping them
+                   instantly is invisible — whereas any fade would ghost the two
+                   identical pictures against each other and read as a flicker.
+                   The swap only happens once the film has painted (see script). */
+                transition: opacity 0s ease;
             }
 
             #weiImg {
@@ -654,7 +657,9 @@
                 var iconPause = document.getElementById('weiIconPause');
                 var iconPlay = document.getElementById('weiIconPlay');
                 var done = false;
-                var OVERLAY_FADE_MS = 600;
+                var OVERLAY_FADE_MS = 0;
+                var PROMPT_FADE_MS = 260;
+                var tapWrap = document.getElementById('weiTapWrap');
 
                 function startVideo() {
                     if (done)
@@ -667,7 +672,13 @@
                           will still be there after the overlay goes. */
                     videoWrap.classList.add('wei-video-in');
 
-                    /* 2. Start the film and the music together. */
+                    /* 2. Let the "Tap to open" prompt leave on its own. The
+                          picture behind it is identical in both layers, so the
+                          prompt is the ONLY thing that visibly changes at the
+                          swap — it has to fade, or it would blink out. */
+                    fadePrompt();
+
+                    /* 3. Start the film and the music together. */
                     var vp = video.play();
                     if (vp && vp.catch)
                         vp.catch(function() {});
@@ -677,10 +688,25 @@
                     if (ap && ap.catch)
                         ap.catch(function() {});
 
-                    /* 3. Only dissolve the overlay once the film has actually
-                          painted a frame — otherwise we'd fade onto a blank
-                          video element while it buffers. */
-                    whenVideoPainted(dissolveOverlay);
+                    /* 4. Cut to the film only once BOTH are true: a real frame
+                          has painted, and the prompt has finished fading. */
+                    var painted = false, promptGone = false;
+                    function cutWhenReady() {
+                        if (painted && promptGone) dissolveOverlay();
+                    }
+                    whenVideoPainted(function() { painted = true; cutWhenReady(); });
+                    setTimeout(function() { promptGone = true; cutWhenReady(); },
+                               PROMPT_FADE_MS + 20);
+                }
+
+                function fadePrompt() {
+                    if (!tapWrap) return;
+                    /* the entrance keyframes hold opacity at 1 via fill-mode and
+                       would out-rank an inline style, so clear them first */
+                    tapWrap.style.animation = 'none';
+                    tapWrap.style.transition = 'opacity ' + PROMPT_FADE_MS + 'ms ease';
+                    void tapWrap.offsetWidth;   /* commit the reset before transitioning */
+                    tapWrap.style.opacity = '0';
                 }
 
                 function whenVideoPainted(cb) {
